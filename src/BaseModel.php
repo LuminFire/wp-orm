@@ -102,6 +102,15 @@ abstract class BaseModel implements ModelInterface
             }
         }
 
+		// Check for column aliases.
+		$aliases = static::get_column_aliases();
+
+		foreach( $aliases as $alias => $column ) {
+			// Anti-alias to actual column name.
+			$props[$column] = $props[$alias];
+			unset( $props[$alias] );
+		}
+
         return $props;
     }
 
@@ -130,19 +139,19 @@ abstract class BaseModel implements ModelInterface
         // Get the model's properties
         $props = $this->properties();
 
-        // Flatten complex objects
+        // Anti-alias and flatten complex objects.
         $props = $this->flatten_props($props);
 
         // Insert or update?
-        if (is_null($props[static::get_primary_key()])) {
+		if ( is_null( $props[static::get_column_name(static::get_primary_key())] ) ) {
             $wpdb->insert($this->get_table(), $props);
 
             $this->{static::get_primary_key()} = $wpdb->insert_id;
         } else {
-            $wpdb->update(static::get_table(), $props, array(static::get_primary_key() => $this->{static::get_primary_key()}));
+            $wpdb->update(static::get_table(), $props, array(static::get_column_name( static::get_primary_key() ) => $this->{static::get_primary_key()}));
         }
 
-        return $this->id;
+        return $this->{static::get_primary_key()};
     }
 
     /**
@@ -185,8 +194,14 @@ abstract class BaseModel implements ModelInterface
         // Get the table name
         $table = static::get_table();
 
-        // Get the item
-        $obj = $wpdb->get_row("SELECT * FROM `{$table}` WHERE `{$property}` = '{$value}'", ARRAY_A);
+		// Maybe "Anti-alias" the property column.
+		$property = static::get_column_name( $property );
+
+		// Get the columns.
+		$columns = static::get_column_string();
+
+		// Get the item
+        $obj = $wpdb->get_row("SELECT {$columns} FROM `{$table}` WHERE `{$property}` = '{$value}'", ARRAY_A);
 
         // Return false if no item was found, or a new model
         return ($obj ? static::create($obj) : false);
@@ -200,7 +215,7 @@ abstract class BaseModel implements ModelInterface
      */
     public static function find_one($id)
     {
-        return static::find_one_by(static::get_primary_key(), (int) $id);
+        return static::find_one_by(static::get_primary_key(), $id);
     }
 
     /**
@@ -229,8 +244,11 @@ abstract class BaseModel implements ModelInterface
         // Get the table name
         $table = static::get_table();
 
+		// Get columns
+		$columns = static::get_column_string();
+
         // Get the items
-        $results = $wpdb->get_results("SELECT * FROM `{$table}`");
+        $results = $wpdb->get_results("SELECT {$columns} FROM `{$table}`");
 
         foreach ($results as $index => $result) {
             $results[$index] = static::create((array) $result);
@@ -240,7 +258,52 @@ abstract class BaseModel implements ModelInterface
     }
 
     /**
+     * Return columns with aliases or just '*' if no aliases aren't being used.
+     *
+     * @return string
+     */
+	public static function get_column_string() {
+		$aliases = static::get_column_aliases();
+
+		// Get all columns.
+		if ( empty( $aliases ) ) {
+			return '*';
+		}
+
+		$columns = array();
+		foreach ( $aliases as $alias => $column ) {
+			$columns[] = "`{$column}` as {$alias}";
+		}
+
+		return join( ",\n", $columns );
+	}
+
+    /**
+     * Return array of aliased columns as array( 'alias_name' => 'real_column_name' ).
+     *
+     * @return array
+     */
+	public static function get_column_aliases() {
+		return array();
+	}
+
+	/**
+     * Anti-aliases column name if aliases are being used.
+     *
+     * @param  string $field
+     * @return string
+     */
+	public static function get_column_name( $field ) {
+		$aliases = static::get_column_aliases();
+
+		if ( isset( $aliases[$field] ) )
+			return $aliases[$field];
+		return $field;
+	}
+
+    /**
      * Return configured table prefix.
+     *
      * @return string
      */
     public function get_table_prefix()

@@ -396,7 +396,7 @@ class Query
             $where .= ' AND (';
 
             foreach ($this->search_fields as $field) {
-                $where .= '`' . $field . '` LIKE "%' . esc_sql($this->search_term) . '%" OR ';
+                $where .= '`' . $model::get_column_name( $field ) . '` LIKE "%' . esc_sql($this->search_term) . '%" OR ';
             }
 
             $where = substr($where, 0, -4) . ')';
@@ -404,6 +404,11 @@ class Query
 
         // Where
         foreach ($this->where as $q) {
+			// Anti-alias column if present.
+			if ( isset( $q['column'] ) ) {
+				$q['column']= $model::get_column_name( $q['column'] );
+			}
+
             // where
             if ($q['type'] == 'where') {
                 $where .= ' AND `' . $q['column'] . '` = "' . esc_sql($q['value']) . '"';
@@ -471,7 +476,7 @@ class Query
                 $where .= ' AND (';
 
                 foreach ($q['where'] as $column => $value) {
-                    $where .= '`' . $column . '` = "' . esc_sql($value) . '" OR ';
+                    $where .= '`' . $model::get_column_name( $column ) . '` = "' . esc_sql($value) . '" OR ';
                 }
 
                 $where = substr($where, 0, -5) . ')';
@@ -482,7 +487,7 @@ class Query
                 $where .= ' AND (';
 
                 foreach ($q['where'] as $column => $value) {
-                    $where .= '`' . $column . '` = "' . esc_sql($value) . '" AND ';
+                    $where .= '`' . $model::get_column_name( $column ) . '` = "' . esc_sql($value) . '" AND ';
                 }
 
                 $where = substr($where, 0, -5) . ')';
@@ -500,7 +505,7 @@ class Query
             // don't quote it
             $order = ' ORDER BY ' . $this->sort_by . ' ' . $this->order;
         } else {
-            $order = ' ORDER BY `' . $this->sort_by . '` ' . $this->order;
+            $order = ' ORDER BY `' . $model::get_column_name( $this->sort_by ) . '` ' . $this->order;
         }
 
         // Limit
@@ -518,6 +523,8 @@ class Query
             return apply_filters('wporm_count_query', "SELECT COUNT(*) FROM `{$table}`{$where}", $this->model);
         }
 
-        return apply_filters('wporm_query', "SELECT * FROM `{$table}`{$where}{$order}{$limit}{$offset}", $this->model);
+		$column_string = $model::get_column_string();
+
+        return apply_filters('wporm_query', "SELECT {$column_string} FROM `{$table}`{$where}{$order}{$limit}{$offset}", $this->model);
     }
 }
