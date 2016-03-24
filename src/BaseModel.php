@@ -270,9 +270,16 @@ abstract class BaseModel implements ModelInterface
 			return '*';
 		}
 
+		// Integrate model properties with column aliases for full coverage.
+        $model_props = get_class_vars( get_called_class() );
+
 		$columns = array();
-		foreach ( $aliases as $alias => $column ) {
-			$columns[] = "`{$column}` as {$alias}";
+		foreach ( $model_props as $column => $value ) {
+			if ( isset( $aliases[$column] ) ) {
+				$columns[] = "`{$aliases[$column]}` as {$column}";
+			} else {
+				$columns[] = $column;
+			}
 		}
 
 		return join( ",\n", $columns );
