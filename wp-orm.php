@@ -3,7 +3,7 @@
 /**
  * Plugin Name: WordPress ORM
  * Description: Light weight ORM for WordPress
- * Version: 1.0
+ * Version: 1.1
  * Author: Brandon Wamboldt
  * Author URI: http://brandonwamboldt.ca/
  * License: MIT
