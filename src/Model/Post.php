@@ -132,6 +132,11 @@ class Post extends BaseModel
      */
     protected $meta = array();
 
+	/**
+	 * @var array
+	 */
+    protected $meta_raw = array();
+
     /**
      * Override the default constructor so we can type cast certain properties.
      *
@@ -146,6 +151,7 @@ class Post extends BaseModel
 
             foreach ($metadata as $data) {
                 $this->meta[$data->meta_key] = maybe_unserialize($data->meta_value);
+                $this->meta_raw[$data->meta_key] = (array)$data;
             }
         }
 
@@ -190,7 +196,22 @@ class Post extends BaseModel
     {
         $this->meta[$meta_key] = $meta_value;
 
-        update_post_meta($this->ID, $meta_key, $meta_value);
+		if( !empty( $this->meta_raw[ $meta_key ] ) ) {
+			$cur_meta_value = $this->meta_raw[$meta_key];
+		} else {
+			$cur_meta_value = array(
+				'meta_id' => '',
+				'post_id' => $this->{static::get_primary_key()},
+				'meta_key' => $meta_key,
+				'meta_value' => $meta_value,
+				);
+		}
+
+		$cur_meta_value['meta_value'] = maybe_serialize( $meta_value );
+
+		$this->meta_raw[$meta_key]['meta_value'] = $cur_meta_value;
+
+        // update_post_meta($this->ID, $meta_key, $meta_value);
     }
 
     /**
@@ -201,6 +222,7 @@ class Post extends BaseModel
     public function delete_metadata($meta_key)
     {
         unset($this->meta[$meta_key]);
+        unset($this->meta_raw[$meta_key]);
 
         delete_post_meta($this->ID, $meta_key);
     }
@@ -214,6 +236,7 @@ class Post extends BaseModel
     public function flatten_props($props)
     {
         unset($props['meta']);
+        unset($props['meta_raw']);
 
         return parent::flatten_props($props);
     }
@@ -249,4 +272,43 @@ class Post extends BaseModel
     {
         return array('post_title', 'post_content', 'post_excerpt');
     }
+
+	/**
+	 * Save postmeta with save
+	 */
+	public function save() 
+	{
+		global $wpdb;
+
+		$a = 1 + 1;
+		parent::save();
+
+		if ( count( $this->meta_raw ) === 0 ){
+			return $this->{static::get_primary_key()};
+		}
+
+		$four =  '(%s,%s,%s,%s)';
+
+		$q = 'INSERT INTO ' . _get_meta_table( 'post' ); 
+		$q .= ' ( meta_id, post_id, meta_key, meta_value ) ';
+		$q .= ' VALUES '; 
+		$q .= str_repeat( $four . ",\n", count($this->meta_raw) - 1) . $four;
+		$q .= ' ON DUPLICATE KEY UPDATE ';
+		$q .= ' meta_id = VALUES( meta_id ),';
+		$q .= ' post_id = VALUES( post_id ),';
+		$q .= ' meta_key = VALUES( meta_key),';
+		$q .= ' meta_value = VALUES( meta_value )';
+
+		$query_vals = array();
+		array_map( function( $e ) use ( &$query_vals ) { 
+			$query_vals = array_merge( $query_vals, array_values( $e ) );
+		}, $this->meta_raw );
+
+		// $meta_vals = array_merge( $query_vals, $query_vals );
+		$sql = $wpdb->prepare( $q, $query_vals );
+
+		$wpdb->query($sql);
+
+        return $this->{static::get_primary_key()};
+	}
 }
