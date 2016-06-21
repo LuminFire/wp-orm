@@ -300,9 +300,9 @@ class Post extends BaseModel
 		$q .= ' meta_value = VALUES( meta_value )';
 
 		$query_vals = array();
-		array_map( function( $e ) use ( &$query_vals ) { 
-			$query_vals = array_merge( $query_vals, array_values( $e ) );
-		}, $this->meta_raw );
+		foreach( $this->meta_raw as $qv ) {
+			array_splice( $query_vals, 0, 0, $qv );
+		}
 
 		// $meta_vals = array_merge( $query_vals, $query_vals );
 		$sql = $wpdb->prepare( $q, $query_vals );
