@@ -209,7 +209,7 @@ class Post extends BaseModel
 
 		$cur_meta_value['meta_value'] = maybe_serialize( $meta_value );
 
-		$this->meta_raw[$meta_key]['meta_value'] = $cur_meta_value;
+		$this->meta_raw[$meta_key] = $cur_meta_value;
 
         // update_post_meta($this->ID, $meta_key, $meta_value);
     }
