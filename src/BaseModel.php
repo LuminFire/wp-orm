@@ -75,13 +75,19 @@ abstract class BaseModel implements ModelInterface
     }
 
     /**
-     * Get all of the properties of this model as an array.
+     * Get all of the properties of this model as an array, calling any overridden model methods for display.
      *
      * @return array
      */
     public function to_array()
     {
-        return $this->properties();
+		$properties = $this->properties();
+		foreach ( $properties as $key => $value ) {
+			if ( method_exists( $this, 'get_' . $key ) ) {
+				$properties[ $key ] = $this->{ 'get_' . $key }();
+			}
+		}
+        return $properties;
     }
 
     /**
